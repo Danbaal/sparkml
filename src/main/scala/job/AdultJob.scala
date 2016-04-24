@@ -1,40 +1,56 @@
 package job
 
 import org.apache.spark.SparkContext
+import org.apache.spark.ml.feature.{VectorAssembler, StringIndexer}
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StringType
-import util.DFUtils._
+import org.apache.spark.sql.types._
+import util.DFCustomFunctions._
+import util.Schemas
+import util.Utils._
 
 /**
- * Created by Dani on 21/04/2016.
+ *
  */
 object AdultJob extends SparkApp {
 
   def name = "Adult Job"
 
-  val header: Seq[String] = Seq("age", "workclass", "fnlwgt", "education", "education-num", "marital-status", "occupation",
-    "relationship", "race", "sex", "capital-gain", "capital-loss", "hours-per-week", "native-country", "target")
-
   runApp()
 
   def run(sc: SparkContext, sqlc: SQLContext) = {
 
-    val trainDataPath = getClass.getResource("/adult_data.csv").getPath
-    val df = sqlc.read
+    val trainDataPath = getClass.getResource("/adult_train_data.csv").getPath
+    val testDataPath = getClass.getResource("/adult_test_data.csv").getPath
+    val sch = Schemas.adultSch
+
+    val trainDF = sqlc.read
       .format("com.databricks.spark.csv")
-      .option("header", "false")
-      .option("inferSchema", "true")
+      .option("nullValue", " ?")
       .load(trainDataPath)
-      .toDF(header: _*)
-      .trim() // trim StringType Columns
+      .toDF(sch.fieldNames: _*)
+      .na.drop()
+      .trim()
+      .cast(sch)
       .cache()
 
-    df.show()
-    df.printSchema()
+    val label = "income"
+    val pipeline = getStringFeaturizer(sch, "income")
 
+    val transformer = pipeline.fit(trainDF)
+
+    val finalDF = transformer.transform(trainDF)
+
+    finalDF.printSchema()
+    finalDF.show()
+
+    // Having a look to correlations with the target variable //////////////////
+    finalDF.schema.map{ sf => if(sf.dataType == StringType || sf.name == "features") "Not Supported" else {
+      val colName = sf.name
+      val corr = finalDF.stat.corr(label, colName)
+      s"||| The correlation between 'income' and $colName is: $corr"
+    }}.foreach(println)
+    ////////////////////////////////////////////////////////////////////////////
 
   }
-
 
 }
