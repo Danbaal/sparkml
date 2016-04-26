@@ -1,6 +1,6 @@
 package util
 
-import org.apache.spark.sql.types.{StringType, DoubleType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 /**
  *
