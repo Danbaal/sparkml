@@ -1,13 +1,13 @@
 package job
 
-import org.apache.spark.SparkContext
 import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler, StringIndexer}
 import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import util.DFCustomFunctions._
 import util.Schemas
-import util.Utils._
 
 /**
  *
@@ -18,7 +18,7 @@ object AdultJob extends SparkApp {
 
   runApp()
 
-  def run(sc: SparkContext, sqlc: SQLContext) = {
+  def run(sqlc: SQLContext) = {
 
     val trainDataPath = getClass.getResource("/adult_train_data.csv").getPath
     val testDataPath = getClass.getResource("/adult_test_data.csv").getPath
@@ -37,28 +37,59 @@ object AdultJob extends SparkApp {
     val label = "income"
     val indxSuff = "_idx"
     val vecSuff = "_vec"
+
     val categoricals: Seq[String] = sch.flatMap(sf => if(sf.dataType == StringType) Some(sf.name) else None)
-    val indexers: Seq[StringIndexer] = categoricals.map(s => new StringIndexer().setInputCol(s).setOutputCol(s+indxSuff))
-    val encoders: Seq[OneHotEncoder] = categoricals.flatMap(s => if(s == label) None else Some(new OneHotEncoder().setInputCol(s+indxSuff).setOutputCol(s+vecSuff)))
+    val doubles = sch.flatMap(sf => if(sf.dataType == DoubleType) Some(sf.name) else None)
 
-    val pipeline = new Pipeline().setStages(indexers ++ encoders toArray)
+    val indexers: Seq[StringIndexer] = categoricals.map(
+      s => new StringIndexer().setInputCol(s).setOutputCol(s+indxSuff))
+    val encoders: Seq[OneHotEncoder] = categoricals.flatMap(
+      s => if(s == label) None else Some(new OneHotEncoder().setInputCol(s+indxSuff).setOutputCol(s+vecSuff)))
+
+    val colsToAssembler = categoricals.flatMap(s => if(s == label) None else Some(s+vecSuff)) ++ doubles toArray
+    val assembler = new VectorAssembler().setInputCols(colsToAssembler).setOutputCol("features")
+
+    val pipeline = new Pipeline().setStages(indexers ++ encoders :+ assembler toArray)
     val transformer = pipeline.fit(trainDF)
-    val vectorizedDF = transformer.transform(trainDF)
+    val featuredDF = transformer.transform(trainDF)
 
-    vectorizedDF.show()
+    //featuredDF.show()
 
-    //TODO: Use Vector Assembler to group all features
+    val df = featuredDF.select(col(label+indxSuff).as("label"), col("features"))
+
+    val lr = new LogisticRegression()
+    //println("LogisticRegression parameters:\n" + lr.explainParams() + "\n")
+    lr.setMaxIter(20)
+      .setRegParam(0.01)
+
+    val lrModel = lr.fit(df)
+
+    val result = lrModel.transform(df).cache() // TODO: Do it with test Data!
+
+    val valDF = result.select((col("label") === col("prediction")).as("isAMatch"))
+    val totalRecords = result.count()
+    val matches = valDF.filter(col("isAMatch")).count()
+
+    println("Total records: " + totalRecords)
+    println("Total matches: " + matches)
+    println("Total mistakes: " + (totalRecords - matches))
+
+    //Total records: 30162
+    //Total matches: 25569
+    //Total mistakes: 4593
+
+
+    //result.show()
 
     // Having a look to correlations with the target variable ////////////////////////////////
-    val doubles = sch.flatMap(sf => if(sf.dataType == DoubleType) Some(sf.name) else None)
-    categoricals.map{ s => {
-      val corr = vectorizedDF.stat.corr(label+indxSuff, s+indxSuff)
-      s"// The correlation between 'income' and '$s' is: $corr"
-    }}.foreach(println)
-    doubles.map{ s => {
-      val corr = vectorizedDF.stat.corr(label+indxSuff, s)
-      s"// The correlation between 'income' and '$s' is: $corr"
-    }}.foreach(println)
+    //categoricals.map{ s => {
+    //  val corr = featuredDF.stat.corr(label+indxSuff, s+indxSuff)
+    //  s"// The correlation between 'income' and '$s' is: $corr"
+    //}}.foreach(println)
+    //doubles.map{ s => {
+    //  val corr = featuredDF.stat.corr(label+indxSuff, s)
+    //  s"// The correlation between 'income' and '$s' is: $corr"
+    //}}.foreach(println)
     //////////////////////////////////////////////////////////////////////////////////////////
     // The correlation between 'income' and 'workclass' is: 0.13693664382909257
     // The correlation between 'income' and 'education' is: 0.046115697656336295
