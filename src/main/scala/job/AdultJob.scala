@@ -1,9 +1,9 @@
 package job
 
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.classification.{BinaryLogisticRegressionSummary, LogisticRegression}
 import org.apache.spark.ml.feature.{OneHotEncoder, VectorAssembler, StringIndexer}
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import util.DFCustomFunctions._
@@ -24,25 +24,18 @@ object AdultJob extends SparkApp {
     val testDataPath = getClass.getResource("/adult_test_data.csv").getPath
     val sch = Schemas.adultSch
 
-    val trainDF = sqlc.read
-      .format("com.databricks.spark.csv")
-      .option("nullValue", " ?")
-      .load(trainDataPath)
-      .toDF(sch.fieldNames: _*)
-      .na.drop()
-      .trim()
-      .cast(sch)
-      .cache()
+    val trainDF = loadData(sqlc, sch, trainDataPath).cache()
+    val testDF = loadData(sqlc, sch, testDataPath).cache()
 
     val label = "income"
     val indxSuff = "_idx"
     val vecSuff = "_vec"
 
     val categoricals: Seq[String] = sch.flatMap(sf => if(sf.dataType == StringType) Some(sf.name) else None)
-    val doubles = sch.flatMap(sf => if(sf.dataType == DoubleType) Some(sf.name) else None)
+    val doubles: Seq[String] = sch.flatMap(sf => if(sf.dataType == DoubleType) Some(sf.name) else None)
 
     val indexers: Seq[StringIndexer] = categoricals.map(
-      s => new StringIndexer().setInputCol(s).setOutputCol(s+indxSuff))
+      s => new StringIndexer().setInputCol(s).setOutputCol(s+indxSuff)/*.setHandleInvalid("skip")*/)
     val encoders: Seq[OneHotEncoder] = categoricals.flatMap(
       s => if(s == label) None else Some(new OneHotEncoder().setInputCol(s+indxSuff).setOutputCol(s+vecSuff)))
 
@@ -51,20 +44,21 @@ object AdultJob extends SparkApp {
 
     val pipeline = new Pipeline().setStages(indexers ++ encoders :+ assembler toArray)
     val transformer = pipeline.fit(trainDF)
-    val featuredDF = transformer.transform(trainDF)
+    val featTrainDF = transformer.transform(trainDF)
+    val featTestDF = transformer.transform(testDF)
 
-    //featuredDF.show()
-
-    val df = featuredDF.select(col(label+indxSuff).as("label"), col("features"))
+    val _featTrainDF = featTrainDF.select(col(label+indxSuff).as("label"), col("features"))
+    val _featTestDF = featTestDF.select(col(label+indxSuff).as("label"), col("features"))
 
     val lr = new LogisticRegression()
     //println("LogisticRegression parameters:\n" + lr.explainParams() + "\n")
     lr.setMaxIter(20)
       .setRegParam(0.01)
+      .setElasticNetParam(0.1)
 
-    val lrModel = lr.fit(df)
+    val lrModel = lr.fit(_featTrainDF)
 
-    val result = lrModel.transform(df).cache() // TODO: Do it with test Data!
+    val result = lrModel.transform(_featTestDF).cache()
 
     val valDF = result.select((col("label") === col("prediction")).as("isAMatch"))
     val totalRecords = result.count()
@@ -74,12 +68,24 @@ object AdultJob extends SparkApp {
     println("Total matches: " + matches)
     println("Total mistakes: " + (totalRecords - matches))
 
-    //Total records: 30162
-    //Total matches: 25569
-    //Total mistakes: 4593
 
+    // Extract the summary from the returned LogisticRegressionModel instance trained in the earlier
+    // example
+    val summary = lrModel.summary
 
-    //result.show()
+    // Obtain the objective per iteration.
+    //val objectiveHistory = summary.objectiveHistory
+    //objectiveHistory.foreach(loss => println(loss))
+
+    // Obtain the metrics useful to judge performance on test data.
+    // We cast the summary to a BinaryLogisticRegressionSummary since the problem is a
+    // binary classification problem.
+    val binarySummary = summary.asInstanceOf[BinaryLogisticRegressionSummary]
+
+    // Obtain the receiver-operating characteristic as a dataframe and areaUnderROC.
+    val roc = binarySummary.roc
+    //roc.show()
+    println(binarySummary.areaUnderROC) // 0.9058589792264902
 
     // Having a look to correlations with the target variable ////////////////////////////////
     //categoricals.map{ s => {
@@ -109,5 +115,14 @@ object AdultJob extends SparkApp {
     //////////////////////////////////////////////////////////////////////////////////////////
 
   }
+
+  def loadData(sqlc: SQLContext, sch: StructType, path: String): DataFrame = sqlc.read
+    .format("com.databricks.spark.csv")
+    .option("nullValue", " ?")
+    .load(path)
+    .toDF(sch.fieldNames: _*)
+    .na.drop()
+    .trim()
+    .cast(sch)
 
 }

@@ -21,7 +21,10 @@ trait SparkApp extends App {
     Logger.getLogger("org").setLevel(Level.ERROR)
     Logger.getLogger("akka").setLevel(Level.ERROR)
 
-    val conf = new SparkConf().setAppName(name).setMaster("local[*]")
+    val conf = new SparkConf()
+      .setAppName(name)
+      .setMaster("local[*]")
+      .set("spark.sql.shuffle.partitions", "2")
     val sc = new SparkContext(conf)
     val sqlc = new SQLContext(sc)
 
