@@ -13,8 +13,6 @@ object DFCustomFunctions {
 
 class DFCustomFunctions(df: DataFrame) {
 
-  //import util.DFCustomFunctions._
-
   /**
    * Method to trim StringType Columns
    * @return
@@ -37,5 +35,18 @@ class DFCustomFunctions(df: DataFrame) {
     }}
     df.select(newCols: _*)
   }
+
+  /**
+   *
+   * @param label
+   */
+  def printCorrelations(label: String): Unit =
+    df.schema.flatMap { sf => sf.dataType match {
+      case DoubleType => {
+        val corr = df.stat.corr(label, sf.name)
+        Some(s"// The correlation between '$label' and '${sf.name}' is: $corr")
+      }
+      case _ => None
+    }}.foreach(println)
 
 }
