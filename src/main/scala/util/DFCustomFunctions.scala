@@ -25,6 +25,11 @@ class DFCustomFunctions(df: DataFrame) {
     df.select(newCols: _*)
   }
 
+  /**
+   *
+   * @param sch
+   * @return
+   */
   def cast(sch: StructType) = {
     val newCols = sch map { sf => sf.dataType match {
       case IntegerType => col(sf.name).cast(IntegerType).as(sf.name)
@@ -48,5 +53,11 @@ class DFCustomFunctions(df: DataFrame) {
       }
       case _ => None
     }}.foreach(println)
+
+  def accuracy(label: String = "label", prediction: String = "prediction"): Double = {
+    val totalRecords = df.count()
+    df.select((col(label) === col(prediction)).as("isAMatch"))
+      .filter(col("isAMatch")).count().toDouble / totalRecords
+  }
 
 }

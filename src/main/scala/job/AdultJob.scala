@@ -17,13 +17,13 @@ import util.Schemas
  */
 object AdultJob extends SparkApp {
 
-  def name = "Adult Job"
+  val name = "Adult Job"
 
   runApp()
 
-  def trainDataPath = getClass.getResource("/adult_train_data.csv").getPath
-  def testDataPath = getClass.getResource("/adult_test_data.csv").getPath
-  def sch = Schemas.adultSch
+  lazy val trainDataPath = getClass.getResource("/adult_train_data.csv").getPath
+  lazy val testDataPath = getClass.getResource("/adult_test_data.csv").getPath
+  lazy val sch = Schemas.adultSch
 
   def run(sqlc: SQLContext) = {
 
@@ -43,10 +43,7 @@ object AdultJob extends SparkApp {
 
     val lrResult = lrModel.transform(featTestDF).cache()
 
-    val totalRecords = lrResult.count()
-    val lrMatches = lrResult
-      .select((col("label") === col("prediction")).as("isAMatch"))
-      .filter(col("isAMatch")).count()
+    val lrAccuracy = lrResult.accuracy()
 
     // Extract the summary from the returned LogisticRegressionModel instance
     val lrSummary = lrModel.summary
@@ -65,12 +62,10 @@ object AdultJob extends SparkApp {
     val labelIndexer = new StringIndexer()
       .setInputCol("label")
       .setOutputCol("indexedLabel")
-      //.fit(featTrainDF_)
     // Automatically identify categorical features, and index them.
     val featureIndexer = new VectorIndexer()
       .setInputCol("features")
       .setOutputCol("indexedFeatures")
-      //.fit(featTrainDF_)
 
     // Train a DecisionTree model.
     val dt = new DecisionTreeClassifier()
@@ -78,8 +73,8 @@ object AdultJob extends SparkApp {
       .setFeaturesCol("indexedFeatures")
       // Criterion used for information gain calculation. Slightly better result with 'entropy'
       .setImpurity("entropy")
-      // Minimum information gain for a split to be considered at a tree node.
-      //.setMinInfoGain(0.01)
+    // Minimum information gain for a split to be considered at a tree node.
+    //.setMinInfoGain(0.01)
 
     val dtPipe = new Pipeline().setStages(Array(labelIndexer, featureIndexer, dt))
 
@@ -87,35 +82,30 @@ object AdultJob extends SparkApp {
 
     val dtResult = dtModel.transform(featTestDF).cache()
 
-    val matches = dtResult
-      .select((col("label") === col("prediction")).as("isAMatch"))
-      .filter(col("isAMatch")).count()
+    val dtAccuracy = dtResult.accuracy()
 
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("indexedLabel")
       .setRawPredictionCol("rawPrediction")
-      //.setMetricName("areaUnderROC") areaUnderROC is by default
+    //.setMetricName("areaUnderROC") areaUnderROC is by default
 
     val dtAreaUnderROC = evaluator.evaluate(dtResult)
 
     /////////////////////////////////// RESULTS ////////////////////////////////////////////////////
 
     println("\n\nLogistic Regression result:")
-    println("\tTotal records: " + totalRecords) // 15060
-    println("\tTotal matches: " + lrMatches) // 12725
-    println("\tTotal mistakes: " + (totalRecords - lrMatches)) // 2335
-    println("\tArea Under ROC: " + lrAreaUnderROC) // 0.9058589792264902
+    println("\tAccuracy: " + lrAccuracy) // 0.845
+    println("\tArea Under ROC: " + lrAreaUnderROC) // 0.906
 
-    println("\nDecision Tree Binary Classifier result:")
-    println("\tTotal records: " + totalRecords) // 15060
-    println("\tTotal matches: " + matches)  // 12356
-    println("\tTotal mistakes: " + (totalRecords - matches)) // 2704
-    println("\tArea Under ROC: " + dtAreaUnderROC) // 0.7820159640274078
+    println("\nDecision Tree Classifier result:")
+    println("\tAccuracy: " + dtAccuracy) // 0.820
+    println("\tArea Under ROC: " + dtAreaUnderROC) // 0.782
     println()
 
   }
 
-  def loadData(sqlc: SQLContext): (DataFrame, DataFrame) = (loadData(sqlc, trainDataPath), loadData(sqlc, testDataPath))
+  def loadData(sqlc: SQLContext): (DataFrame, DataFrame) =
+    (loadData(sqlc, trainDataPath), loadData(sqlc, testDataPath))
 
   def loadData(sqlc: SQLContext, path: String): DataFrame = sqlc.read
     .format("com.databricks.spark.csv")
