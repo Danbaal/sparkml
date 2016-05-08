@@ -5,6 +5,7 @@ import org.apache.spark.ml.feature.{VectorAssembler, OneHotEncoder, StringIndexe
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
+import util.DFCustomFunctions._
 
 
 object Featurizer {
@@ -32,6 +33,7 @@ object Featurizer {
     val featTestDF = transformer.transform(testDF)
 
     //featTrainDF.printCorrelations(label + indxSuff)
+    //featTrainDF.printAllCorrelations()
 
     (featTrainDF.select(col(label + indxSuff).as("label"), col("features")),
       featTestDF.select(col(label + indxSuff).as("label"), col("features")))

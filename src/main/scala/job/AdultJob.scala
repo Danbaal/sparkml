@@ -94,12 +94,12 @@ object AdultJob extends SparkApp {
     /////////////////////////////////// RESULTS ////////////////////////////////////////////////////
 
     println("\n\nLogistic Regression result:")
-    println("\tAccuracy: " + lrAccuracy) // 0.845
-    println("\tArea Under ROC: " + lrAreaUnderROC) // 0.906
+    println("\tAccuracy: " + lrAccuracy) // 0.844
+    println("\tArea Under ROC: " + lrAreaUnderROC) // 0.899
 
     println("\nDecision Tree Classifier result:")
     println("\tAccuracy: " + dtAccuracy) // 0.820
-    println("\tArea Under ROC: " + dtAreaUnderROC) // 0.782
+    println("\tArea Under ROC: " + dtAreaUnderROC) // 0.795
     println()
 
   }
@@ -112,7 +112,9 @@ object AdultJob extends SparkApp {
     .option("nullValue", " ?")
     .load(path)
     .toDF(sch.fieldNames: _*)
-    .na.drop()
+    //These fields have very low correlation with 'income' (under 0.02) and removing them barely affects final results
+    .selectNot("fnlwgt", "native-country")
+    .na.drop() // Removing records with unknowns
     .trim()
     .cast(sch)
     .cache()

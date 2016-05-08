@@ -9,3 +9,5 @@ libraryDependencies ++= Seq(
 	"org.apache.spark" %% "spark-sql" % "1.6.1",
 	"org.apache.spark" %% "spark-mllib" % "1.6.1",
 	"com.databricks" %% "spark-csv" % "1.4.0")
+
+//mainClass in (Compile, run) := Some("job.AdultJob")
