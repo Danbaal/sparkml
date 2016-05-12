@@ -24,4 +24,15 @@ object Schemas {
     StructField("native-country", StringType, true),
     StructField("income", StringType, true)))
 
+  val crimeSch = StructType(Seq(
+    StructField("Dates", TimestampType, true),
+    StructField("Category", StringType, true), // Label
+    StructField("Descript", StringType, true), // Only in train.
+    StructField("DayOfWeek", StringType, true),
+    StructField("PdDistrict", StringType, true),
+    StructField("Resolution", StringType, true), // Only in train
+    StructField("Address", StringType, true),
+    StructField("X", DoubleType, true),
+    StructField("Y", StringType, true)))
+
 }

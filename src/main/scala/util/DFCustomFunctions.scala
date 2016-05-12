@@ -3,6 +3,7 @@ package util
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import transform.Correlation
 
 /**
  *
@@ -31,13 +32,11 @@ class DFCustomFunctions(df: DataFrame) {
    * @return
    */
   def cast(sch: StructType) = {
-    val newCols = sch flatMap { sf => (sf.dataType, df.columns.contains(sf.name)) match {
-      case (IntegerType, true)  => Some(col(sf.name).cast(IntegerType).as(sf.name))
-      case (DoubleType, true)   => Some(col(sf.name).cast(DoubleType).as(sf.name))
-      case (DateType, true)     => Some(col(sf.name).cast(DateType).as(sf.name))
-      case (BooleanType, true)  => Some(col(sf.name).cast(BooleanType).as(sf.name))
-      case (_, true)            => Some(col(sf.name))
-      case (_, false)           => None
+    val cols = df.columns
+    val newCols = sch flatMap { sf => (sf.dataType == StringType, cols.contains(sf.name)) match {
+      case (false, true) => Some(col(sf.name).cast(sf.dataType).as(sf.name))
+      case (true, true) => Some(col(sf.name))
+      case (_, false) => None
     }}
     df.select(newCols: _*)
   }
@@ -56,24 +55,41 @@ class DFCustomFunctions(df: DataFrame) {
    *
    * @param label
    */
-  def printCorrelations(label: String): Unit =
+  def getLabelCorrelations(label: String = "label"): Seq[Correlation] =
     df.schema.flatMap { sf => sf.dataType match {
       case DoubleType => {
         val corr = df.stat.corr(label, sf.name)
-        Some(s"// The correlation between '$label' and '${sf.name}' is: $corr")
+        Some(Correlation(label, sf.name, corr))
       }
       case _ => None
-    }}.foreach(println)
+    }}
 
-  def printAllCorrelations(): Unit = {
+  /**
+   *
+   * @param label
+   * @return
+   */
+  def getFeatureCorrelations(label: String = "label"): Seq[Correlation] = {
     val fieldCombinations = df.schema
-      .flatMap( sf => if(sf.dataType == DoubleType) Some(sf.name) else None).toSet
-      .subsets(2).map(_.toSeq).toSeq
-    val seqS: Seq[String] = fieldCombinations map (
-      pair => s"// The correlation between '${pair(0)}' and '${pair(1)}' is: ${df.stat.corr(pair(0), pair(1))}")
-    seqS.foreach(println)
+      .flatMap( sf => if(sf.dataType == DoubleType && sf.name != label) Some(sf.name) else None)
+      .toSet.subsets(2).map(_.toSeq).toSeq
+    fieldCombinations map ( pair => Correlation(pair(0), pair(1), df.stat.corr(pair(0), pair(1))) )
   }
 
+  /**
+   *
+   * @param label
+   * @return
+   */
+  def getAllCorrelations(label: String = "label"): Seq[Correlation] =
+    getLabelCorrelations(label) ++ getFeatureCorrelations(label)
+
+  /**
+   *
+   * @param label
+   * @param prediction
+   * @return
+   */
   def accuracy(label: String = "label", prediction: String = "prediction"): Double = {
     val totalRecords = df.count()
     df.select((col(label) === col(prediction)).as("isAMatch"))

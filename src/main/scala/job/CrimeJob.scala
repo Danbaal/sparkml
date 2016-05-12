@@ -14,6 +14,12 @@ object CrimeJob extends SparkApp{
 
   lazy val path = getClass.getResource("/crime-train.csv").getPath
 
+  /*
+    This dataset contains incidents derived from SFPD Crime Incident Reporting system.
+    The data ranges from 1/1/2003 to 5/13/2015. The training set and test set rotate every week,
+    meaning week 1,3,5,7... belong to test set, week 2,4,6,8 belong to training set.
+  */
+
   def run(sqlc: SQLContext) = {
     import sqlc.implicits._
 
@@ -30,7 +36,6 @@ object CrimeJob extends SparkApp{
     val cleanAddress = udf((str: String) => "\\d+ Block of ".r.replaceAllIn(str, ""))
 
     val df2 = df.select(cleanAddress($"Address").as("newAddress")).cache()
-    //df2.distinct.take(40).foreach(println)
 
     println("Distinct Address After cleaning: " + df2.distinct().count())
 

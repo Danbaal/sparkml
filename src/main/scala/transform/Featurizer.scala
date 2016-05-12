@@ -7,6 +7,9 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StringType}
 import util.DFCustomFunctions._
 
+case class Correlation(field1: String, field2: String, correlation: Double){
+  override def toString() = s"|||||> The correlation between '$field1' and '$field2' is: ${"%.4f".format(correlation)}"
+}
 
 object Featurizer {
 
@@ -32,8 +35,8 @@ object Featurizer {
     val featTrainDF = transformer.transform(trainDF)
     val featTestDF = transformer.transform(testDF)
 
-    //featTrainDF.printCorrelations(label + indxSuff)
-    //featTrainDF.printAllCorrelations()
+    //featTrainDF.getLabelCorrelations(label + indxSuff).foreach(println)
+    //featTrainDF.getFeatureCorrelations(label + indxSuff).foreach(println)
 
     (featTrainDF.select(col(label + indxSuff).as("label"), col("features")),
       featTestDF.select(col(label + indxSuff).as("label"), col("features")))

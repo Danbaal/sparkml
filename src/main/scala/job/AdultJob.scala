@@ -46,11 +46,8 @@ object AdultJob extends SparkApp {
     val lrAccuracy = lrResult.accuracy()
 
     // Extract the summary from the returned LogisticRegressionModel instance
-    val lrSummary = lrModel.summary
-
-    // We cast the summary to a BinaryLogisticRegressionSummary since the problem is a
-    // binary classification problem.
-    val binarySummary = lrSummary.asInstanceOf[BinaryLogisticRegressionSummary]
+    // We cast the summary to a BinaryLogisticRegressionSummary since the problem is a binary classification problem.
+    val binarySummary = lrModel.summary.asInstanceOf[BinaryLogisticRegressionSummary]
 
     // Obtain the areaUnderROC.
     val lrAreaUnderROC = binarySummary.areaUnderROC
@@ -58,7 +55,6 @@ object AdultJob extends SparkApp {
     ////////////////////////////////////// DECISION TREE //////////////////////////////////////////////
 
     // Index labels, adding metadata to the label column.
-    // Fit on whole dataset to include all labels in index.
     val labelIndexer = new StringIndexer()
       .setInputCol("label")
       .setOutputCol("indexedLabel")
@@ -73,8 +69,8 @@ object AdultJob extends SparkApp {
       .setFeaturesCol("indexedFeatures")
       // Criterion used for information gain calculation. Slightly better result with 'entropy'
       .setImpurity("entropy")
-    // Minimum information gain for a split to be considered at a tree node.
-    //.setMinInfoGain(0.01)
+      // Minimum information gain for a split to be considered at a tree node.
+      //.setMinInfoGain(0.01)
 
     val dtPipe = new Pipeline().setStages(Array(labelIndexer, featureIndexer, dt))
 
@@ -87,7 +83,7 @@ object AdultJob extends SparkApp {
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("indexedLabel")
       .setRawPredictionCol("rawPrediction")
-    //.setMetricName("areaUnderROC") areaUnderROC is by default
+      //.setMetricName("areaUnderROC") areaUnderROC is already by default
 
     val dtAreaUnderROC = evaluator.evaluate(dtResult)
 
