@@ -20,4 +20,5 @@ project/plugins/project/
 .idea/
 
 # Data
-src/main/resources/crime-train.csv
+src/main/resources/crime/crime-train.csv
+src/main/resources/animals/animals-train.csv

@@ -35,4 +35,16 @@ object Schemas {
     StructField("X", DoubleType, true),
     StructField("Y", StringType, true)))
 
+  val animalSch = StructType(Seq(
+    StructField("AnimalID", StringType, true),
+    StructField("Name", StringType, true),
+    StructField("DateTime", TimestampType, true),
+    StructField("OutcomeType", StringType, true),
+    StructField("OutcomeSubtype", StringType, true),
+    StructField("AnimalType", StringType, true),
+    StructField("SexuponOutcome", StringType, true),
+    StructField("AgeuponOutcome", StringType, true),
+    StructField("Breed", StringType, true),
+    StructField("Color", StringType, true)))
+
 }

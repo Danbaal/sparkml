@@ -21,8 +21,8 @@ object AdultJob extends SparkApp {
 
   runApp()
 
-  lazy val trainDataPath = getClass.getResource("/adult_train_data.csv").getPath
-  lazy val testDataPath = getClass.getResource("/adult_test_data.csv").getPath
+  lazy val trainDataPath = getClass.getResource("/adult/adult_train_data.csv").getPath
+  lazy val testDataPath = getClass.getResource("/adult/adult_test_data.csv").getPath
   lazy val sch = Schemas.adultSch
 
   def run(sqlc: SQLContext) = {

@@ -24,7 +24,8 @@ trait SparkApp extends App {
     val conf = new SparkConf()
       .setAppName(name)
       .setMaster("local[*]")
-      .set("spark.sql.shuffle.partitions", "2")
+      //.set("spark.sql.shuffle.partitions", "2")
+      .set("spark.yarn.executor.memoryOverhead", "2058")
     val sc = new SparkContext(conf)
     val sqlc = new SQLContext(sc)
 
