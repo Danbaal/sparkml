@@ -1,6 +1,6 @@
 package util
 
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import transform.Correlation
@@ -47,7 +47,7 @@ class DFCustomFunctions(df: DataFrame) {
    * @return
    */
   def selectNot(fieldsToDrop: String*) = {
-    val newCols = df.columns flatMap (f => if(fieldsToDrop.contains(f)) None else Some(col(f)))
+    val newCols = df.columns.filter(!fieldsToDrop.contains(_)).map(col(_))
     df.select(newCols: _*)
   }
 
@@ -55,14 +55,12 @@ class DFCustomFunctions(df: DataFrame) {
    *
    * @param label
    */
-  def getLabelCorrelations(label: String = "label"): Seq[Correlation] =
-    df.schema.flatMap { sf => sf.dataType match {
-      case DoubleType => {
-        val corr = df.stat.corr(label, sf.name)
-        Some(Correlation(label, sf.name, corr))
-      }
-      case _ => None
-    }}
+  def getLabelCorrelations(label: String = "label"): Seq[Correlation] = {
+    df.schema.filter(_.dataType == DoubleType).map{ sf =>
+      val corr = df.stat.corr(label, sf.name)
+      Correlation(label, sf.name, corr)
+    }
+  }
 
   /**
    *
@@ -71,7 +69,7 @@ class DFCustomFunctions(df: DataFrame) {
    */
   def getFeatureCorrelations(label: String = "label"): Seq[Correlation] = {
     val fieldCombinations = df.schema
-      .flatMap( sf => if(sf.dataType == DoubleType && sf.name != label) Some(sf.name) else None)
+      .filter(sf => sf.dataType == DoubleType && sf.name != label).map(_.name)
       .toSet.subsets(2).map(_.toSeq).toSeq
     fieldCombinations map ( pair => Correlation(pair(0), pair(1), df.stat.corr(pair(0), pair(1))) )
   }
@@ -81,8 +79,9 @@ class DFCustomFunctions(df: DataFrame) {
    * @param label
    * @return
    */
-  def getAllCorrelations(label: String = "label"): Seq[Correlation] =
+  def getAllCorrelations(label: String = "label"): Seq[Correlation] = {
     getLabelCorrelations(label) ++ getFeatureCorrelations(label)
+  }
 
   /**
    *

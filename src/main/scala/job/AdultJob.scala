@@ -1,13 +1,10 @@
 package job
 
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.{DecisionTreeClassifier, BinaryLogisticRegressionSummary, LogisticRegression}
+import org.apache.spark.ml.classification.{NaiveBayes, DecisionTreeClassifier, LogisticRegression}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{VectorIndexer, OneHotEncoder, VectorAssembler, StringIndexer}
-import org.apache.spark.ml.regression.DecisionTreeRegressor
+import org.apache.spark.ml.feature.{VectorIndexer, StringIndexer}
 import org.apache.spark.sql.{DataFrame, SQLContext}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
 import transform.Featurizer
 import util.DFCustomFunctions._
 import util.Schemas
@@ -31,26 +28,32 @@ object AdultJob extends SparkApp {
 
     val (featTrainDF, featTestDF) = Featurizer.transform(trainDF, testDF, label = "income")
 
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("label")
+      .setRawPredictionCol("rawPrediction")
+    //.setMetricName("areaUnderROC") areaUnderROC is already by default
+
     ////////////////////////////////////// LOGISTIC REGRESSION //////////////////////////////////////////////
 
     val lr = new LogisticRegression()
-    //println("LogisticRegression parameters:\n" + lr.explainParams() + "\n")
-    lr.setMaxIter(20)
-      .setRegParam(0.01)
-      .setElasticNetParam(0.1)
 
     val lrModel = lr.fit(featTrainDF)
-
     val lrResult = lrModel.transform(featTestDF).cache()
 
     val lrAccuracy = lrResult.accuracy()
+    val lrAreaUnderROC = evaluator.evaluate(lrResult)
 
-    // Extract the summary from the returned LogisticRegressionModel instance
-    // We cast the summary to a BinaryLogisticRegressionSummary since the problem is a binary classification problem.
-    val binarySummary = lrModel.summary.asInstanceOf[BinaryLogisticRegressionSummary]
 
-    // Obtain the areaUnderROC.
-    val lrAreaUnderROC = binarySummary.areaUnderROC
+    ////////////////////////////////////// NAIVE BAYES //////////////////////////////////////////////
+
+    val nb = new NaiveBayes()
+
+    val nbModel = nb.fit(featTrainDF)
+    val nbResult = nbModel.transform(featTestDF)
+
+    val nbAccuracy = nbResult.accuracy()
+    val nbAreaUnderROC = evaluator.evaluate(nbResult)
+
 
     ////////////////////////////////////// DECISION TREE //////////////////////////////////////////////
 
@@ -75,23 +78,21 @@ object AdultJob extends SparkApp {
     val dtPipe = new Pipeline().setStages(Array(labelIndexer, featureIndexer, dt))
 
     val dtModel = dtPipe.fit(featTrainDF)
-
     val dtResult = dtModel.transform(featTestDF).cache()
 
     val dtAccuracy = dtResult.accuracy()
+    val dtAreaUnderROC = evaluator.setLabelCol("indexedLabel").evaluate(dtResult)
 
-    val evaluator = new BinaryClassificationEvaluator()
-      .setLabelCol("indexedLabel")
-      .setRawPredictionCol("rawPrediction")
-      //.setMetricName("areaUnderROC") areaUnderROC is already by default
-
-    val dtAreaUnderROC = evaluator.evaluate(dtResult)
 
     /////////////////////////////////// RESULTS ////////////////////////////////////////////////////
 
     println("\n\nLogistic Regression result:")
-    println("\tAccuracy: " + lrAccuracy) // 0.844
-    println("\tArea Under ROC: " + lrAreaUnderROC) // 0.899
+    println("\tAccuracy: " + lrAccuracy) // 0.847
+    println("\tArea Under ROC: " + lrAreaUnderROC) // 0.903
+
+    println("\nNaive Bayes result:")
+    println("\tAccuracy: " + nbAccuracy) // 0.775
+    println("\tArea Under ROC: " + nbAreaUnderROC) // 0.221
 
     println("\nDecision Tree Classifier result:")
     println("\tAccuracy: " + dtAccuracy) // 0.820
