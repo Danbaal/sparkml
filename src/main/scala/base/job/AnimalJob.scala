@@ -1,15 +1,13 @@
-package job
+package base.job
 
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.ml.feature.{VectorIndexer, StringIndexer}
+import org.apache.spark.ml.feature.{StringIndexer, VectorIndexer}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.sql.{DataFrame, SQLContext}
-import org.apache.spark.sql.functions._
-import util.DFCustomFunctions._
-import transform.Featurizer
-
+import base.transform.Featurizer
+import base.util.DFCustomFunctions._
 
 object AnimalJob extends SparkApp{
 

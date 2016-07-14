@@ -1,11 +1,11 @@
-package transform
+package base.transform
 
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.feature.{VectorAssembler, OneHotEncoder, StringIndexer}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StructType, DoubleType, StringType}
-import util.DFCustomFunctions._
+import base.util.DFCustomFunctions._
 
 case class Correlation(field1: String, field2: String, correlation: Double){
   override def toString() = s"|||||> The correlation between '$field1' and '$field2' is: ${"%.4f".format(correlation)}"

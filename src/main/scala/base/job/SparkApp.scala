@@ -1,10 +1,8 @@
-package job
+package base.job
 
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkConf
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
 
 /**
  * Created by Dani on 21/04/2016.

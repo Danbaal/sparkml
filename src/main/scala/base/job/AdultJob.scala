@@ -1,13 +1,13 @@
-package job
+package base.job
 
 import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.{NaiveBayes, DecisionTreeClassifier, LogisticRegression}
+import org.apache.spark.ml.classification.{DecisionTreeClassifier, LogisticRegression, NaiveBayes}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.feature.{VectorIndexer, StringIndexer}
+import org.apache.spark.ml.feature.{StringIndexer, VectorIndexer}
 import org.apache.spark.sql.{DataFrame, SQLContext}
-import transform.Featurizer
-import util.DFCustomFunctions._
-import util.Schemas
+import base.transform.Featurizer
+import base.util.DFCustomFunctions._
+import base.util.Schemas
 
 /**
  *
